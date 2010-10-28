@@ -196,6 +196,15 @@ public class SealedAttribute : Attribute {
 	public SealedAttribute () {} 
 }
 
+public class ExceptionAttribute : Attribute {
+	public ExceptionAttribute (string cmd)
+	{
+		Command = cmd;
+	}
+
+	public string Command { get; set; }
+}
+
 public class EventArgsAttribute : Attribute {
 	public EventArgsAttribute (string s)
 	{
@@ -982,7 +991,7 @@ public class Generator {
 					} else  if (attr is AbstractAttribute){
 						need_abstract [t] = true;
 						continue;
-					} else if (attr is SealedAttribute || attr is EventArgsAttribute || attr is EventNameAttribute || attr is DefaultValueAttribute || attr is ObsoleteAttribute || attr is AlphaAttribute || attr is DefaultValueFromArgumentAttribute || attr is NewAttribute || attr is SinceAttribute || attr is PostGetAttribute)
+					} else if (attr is SealedAttribute || attr is ExceptionAttribute || attr is EventArgsAttribute || attr is EventNameAttribute || attr is DefaultValueAttribute || attr is ObsoleteAttribute || attr is AlphaAttribute || attr is DefaultValueFromArgumentAttribute || attr is NewAttribute || attr is SinceAttribute || attr is PostGetAttribute)
 						continue;
 					else 
 						Console.WriteLine ("Error: Unknown attribute {0} on {1}", attr.GetType (), t);
@@ -1884,6 +1893,13 @@ public class Generator {
 						print ("public override {0} {1} ({2})", RenderType (mi.ReturnType), mi.Name, RenderParameterDecl (pars));
 						print ("{"); indent++;
 
+						var ex_command = GetExceptionCommand (mi);
+
+						if (!string.IsNullOrEmpty (ex_command)) {
+							print ("try {");
+							indent ++;
+						}
+
 						if (mi.Name == bta.KeepRefUntil)
 							print ("instances.Remove (reference);");
 						
@@ -1930,6 +1946,16 @@ public class Generator {
 							}
 						}
 						
+						if (!string.IsNullOrEmpty (ex_command)) {
+							indent --;
+							print ("} catch {");
+							indent ++;
+							print ("{0};", ex_command);
+							print ("throw;");
+							indent --;
+							print ("}");
+						}
+
 						indent--;
 						print ("}\n");
 					}
@@ -2159,6 +2185,15 @@ public class Generator {
 			Environment.Exit (1);
 		}
 		return ((EventArgsAttribute) a).ArgName;
+	}
+
+	string GetExceptionCommand (MethodInfo mi)
+	{
+		var a = GetAttribute (mi, typeof (ExceptionAttribute));
+		if (a == null)
+			return null;
+
+		return ((ExceptionAttribute) a).Command;
 	}
 	
 	object GetDefaultValue (MethodInfo mi)
